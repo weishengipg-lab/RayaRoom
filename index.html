@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="zh" class="h-full">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>RayaRoom</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* === BASE === */
+html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+* { box-sizing: border-box; font-family: 'Fredoka', 'Noto Sans SC', sans-serif; }
+
+/* === SCENE TRANSITIONS === */
+@keyframes fadeOutScene { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes fadeInScene { 0% { opacity: 0; } 100% { opacity: 1; } }
+.scene-fade-out { animation: fadeOutScene 0.8s ease-out forwards; }
+.scene-fade-in { animation: fadeInScene 0.8s ease-in forwards; }
+
+/* === SPLASH === */
+.splash-bg { background: url('https://files.catbox.moe/k7wtxy.png') center/cover no-repeat; }
+@keyframes breathe { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.08); } }
+.btn-breathe { animation: breathe 2s ease-in-out infinite; }
+@keyframes float { 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(-8px); } }
+.float { animation: float 3s ease-in-out infinite; }
+
+/* === COIN FLY === */
+@keyframes coinFly {
+  0% { opacity:1; transform: translate(0,0) scale(1); }
+  100% { opacity:0; transform: translate(var(--tx), var(--ty)) scale(0.3); }
+}
+.coin-fly { animation: coinFly 0.8s cubic-bezier(.4,0,.2,1) forwards; position: fixed; z-index: 9999; pointer-events: none; font-size: 28px; }
+
+/* === CONFETTI === */
+@keyframes confettiFall {
+  0% { transform: translateY(-10px) rotate(0deg); opacity:1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity:0; }
+}
+.confetti-piece {
+  position: fixed; width: 10px; height: 10px; z-index: 9998; pointer-events: none;
+  animation: confettiFall 1.5s ease-in forwards;
+}
+
+/* === MODAL === */
+@keyframes modalIn { 0% { opacity:0; transform: scale(0.7) translateY(20px); } 100% { opacity:1; transform: scale(1) translateY(0); } }
+@keyframes modalOut { 0% { opacity:1; transform: scale(1); } 100% { opacity:0; transform: scale(0.7); } }
+.modal-in { animation: modalIn 0.4s cubic-bezier(.34,1.56,.64,1) forwards; }
+.modal-out { animation: modalOut 0.25s ease-in forwards; }
+
+/* === DRAG === */
+.dragging { transform: scale(1.15); filter: drop-shadow(0 8px 16px rgba(0,0,0,0.4)); transition: transform 0.1s; cursor: grabbing !important; }
+.character { cursor: grab; transition: transform 0.2s, filter 0.2s; position: absolute; user-select: none; -webkit-user-select: none; }
+.character:hover { transform: scale(1.05); }
+
+/* === SNOW === */
+@keyframes snowfall {
+  0% { transform: translateY(-10px) translateX(0) rotate(0); opacity: 0.8; }
+  50% { transform: translateY(50vh) translateX(20px) rotate(180deg); opacity: 0.6; }
+  100% { transform: translateY(100vh) translateX(-10px) rotate(360deg); opacity: 0; }
+}
+
+/* === LANTERN === */
+@keyframes lanternSwing { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+
+/* === COIN SPIN === */
+@keyframes coinSpin { 0% { transform: rotateY(0); } 100% { transform: rotateY(360deg); } }
+.coin-spin { display: inline-block; animation: coinSpin 2s linear infinite; }
+
+/* === PULSE === */
+@keyframes pulse { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.2); } }
+.pulse { animation: pulse 0.4s ease; }
+
+/* === NUM BUMP === */
+@keyframes numBump { 0%{ transform:scale(1); } 50%{ transform:scale(1.4); color:#FFD700; } 100%{ transform:scale(1); } }
+.num-bump { animation: numBump 0.5s ease; }
+
+/* === SCROLLBAR === */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 3px; }
+
+/* === NAV === */
+.nav-btn { transition: all 0.2s; }
+.nav-btn:hover { transform: translateY(-3px); }
+.nav-btn.active { background: rgba(255,255,255,0.25); }
+
+/* === ACHIEVEMENT === */
+@keyframes badgeUnlock {
+  0% { transform: scale(0) rotate(-180deg); opacity:0; }
+  60% { transform: scale(1.2) rotate(10deg); opacity:1; }
+  100% { transform: scale(1) rotate(0); opacity:1; }
+}
+.badge-unlock { animation: badgeUnlock 0.6s cubic-bezier(.34,1.56,.64,1) forwards; }
+
+/* === OVERLAY === */
+.overlay-dim {
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* === CARDS === */
+.room-card { transition: all 0.3s cubic-bezier(.34,1.56,.64,1); }
+.room-card:hover { transform: translateY(-4px) scale(1.02); }
+.quest-btn { transition: all 0.2s; }
+.quest-btn:hover:not(:disabled) { transform: scale(1.03); }
+.opt-btn { transition: all 0.15s; }
+.opt-btn:hover:not(:disabled) { transform: translateX(4px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+
+/* === SCENE GRID === */
+.scene-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+/* === GOLD PARTICLES === */
+@keyframes floatGold {
+  0% { transform: translateY(0) translateX(0) scale(1); opacity: 0.8; }
+  50% { transform: translateY(-25px) translateX(8px) scale(0.85); opacity: 0.9; }
+  100% { transform: translateY(-60px) translateX(-5px) scale(0.4); opacity: 0; }
+}
+.gold-particle {
+  position: fixed; width: 5px; height: 5px;
+  background: radial-gradient(circle, #FFD700, #FFA500);
+  border-radius: 50%; pointer-events: none;
+  animation: floatGold 2.8s ease-out forwards;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.6), 0 0 12px rgba(255, 165, 0, 0.3);
+  z-index: 2;
+}
+
+/* === GLOW PULSE === */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 107, 157, 0.3), 0 0 25px rgba(255, 107, 157, 0.1); border-color: #ff6b9d; }
+  50% { box-shadow: 0 0 20px rgba(255, 107, 157, 0.6), 0 0 40px rgba(255, 107, 157, 0.3); border-color: #ff8fb3; }
+}
+
+/* === FLOAT CARD === */
+@keyframes floatCard {
+  0%, 100% { transform: translateY(0) scale(var(--scale, 1)); }
+  50% { transform: translateY(-4px) scale(var(--scale, 1)); }
+}
+
+.scene-card {
+  position: relative; border-radius: 16px; overflow: hidden;
+  aspect-ratio: 16/9; cursor: pointer; border: 3px solid transparent;
+  --scale: 1; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: scale(var(--scale));
+  animation: floatCard 3s ease-in-out infinite;
+}
+.scene-card img { width: 100%; height: 100%; object-fit: cover; transition: filter 0.3s ease; }
+.scene-card .label {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 8px 12px; font-size: 12px; font-weight: 800; color: #fff;
+  background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.3));
+  transition: background 0.3s ease;
+}
+.scene-card.active {
+  --scale: 1.02; border: 3px solid #ff6b9d;
+  animation: floatCard 3s ease-in-out infinite, glowPulse 2s ease-in-out infinite;
+  z-index: 10;
+}
+.scene-card:hover:not(.locked) { --scale: 1.06; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); }
+.scene-card:active:not(.locked) { --scale: 0.96; }
+.scene-card.locked { cursor: not-allowed; }
+.scene-card.locked img { filter: brightness(0.35) grayscale(0.95); }
+.scene-card.locked::before {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(3px); z-index: 5;
+}
+.scene-card.locked::after {
+  content: "🔒"; position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px; z-index: 6; animation: pulse 1.5s ease-in-out infinite;
+}
+</style>
+</head>
+<body class="h-full overflow-hidden">
+<div id="app" class="h-full w-full relative" style="background:#0a0a1a;">
+<audio id="bgmAudio" loop style="display:none;"></audio>
+
+<!-- ===== SPLASH SCREEN ===== -->
+<div id="splash" class="splash-bg h-full w-full flex flex-col items-center justify-center relative">
+  <div class="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/50"></div>
+  <div class="relative z-10 text-center">
+    <h1 id="splashTitle" class="text-6xl md:text-8xl font-bold text-white float" style="text-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 60px rgba(255,200,50,0.3);">RayaRoom</h1>
+    <p id="splashSub" class="text-white/80 text-lg mt-3 tracking-widest" style="text-shadow:0 2px 8px rgba(0,0,0,0.5);">🇲🇾 马来西亚文化探索 | Teroka Budaya Malaysia</p>
+    <button id="btnStart" class="btn-breathe mt-10 px-10 py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold text-xl rounded-full shadow-lg shadow-orange-500/40 hover:shadow-orange-500/60 transition-shadow" onclick="startGame()">🚀 <span data-lang="start_btn">开始探险 Mula!</span></button>
+    <div class="mt-6 flex gap-3 justify-center">
+      <button onclick="setLang('zh')" class="px-4 py-2 rounded-full text-sm font-medium bg-white/20 text-white hover:bg-white/30 transition" id="langZh">中文</button>
+      <button onclick="setLang('ms')" class="px-4 py-2 rounded-full text-sm font-medium bg-white/10 text-white hover:bg-white/30 transition" id="langMs">Bahasa Melayu</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MAIN GAME ===== -->
+<div id="gameScreen" class="h-full w-full hidden flex flex-col">
+  <!-- HUD -->
+  <div class="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-indigo-900/95 to-purple-900/95 border-b border-white/10 shrink-0 z-30">
+    <div class="flex items-center gap-2">
+      <span class="text-xl">🏠</span>
+      <span id="roomLabel" class="text-white font-semibold text-sm truncate max-w-[140px]">原场景</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <button onclick="showAchievements()" class="text-yellow-300 hover:text-yellow-200 transition" title="成就"><i data-lucide="award" style="width:20px;height:20px;"></i></button>
+      <button onclick="showRules()" class="text-white/70 hover:text-white transition" title="规则"><i data-lucide="help-circle" style="width:20px;height:20px;"></i></button>
+      <div id="coinDisplay" class="flex items-center gap-1 bg-yellow-500/20 px-3 py-1 rounded-full">
+        <span class="coin-spin">🪙</span>
+        <span id="coinCount" class="text-yellow-300 font-bold text-sm">0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Room Area -->
+  <div id="roomArea" class="flex-1 relative overflow-hidden" style="background:#1a1a2e;">
+    <img id="roomBg" src="https://files.catbox.moe/d2k0g3.png" alt="Room Background" loading="lazy" class="absolute inset-0 w-full h-full object-cover" onerror="this.style.background='linear-gradient(135deg,#1a1a2e,#2d1b69)';">
+    <canvas id="ambientCanvas" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index:1;"></canvas>
+    <img id="character" class="character" src="https://files.catbox.moe/8lmb55.png" alt="Character" style="width:100px; height:auto; left:50%; top:55%; z-index:2; transform:translate(-50%,-50%);" loading="lazy" onerror="this.style.display='none';">
+  </div>
+
+  <!-- Bottom Nav -->
+  <div class="flex items-center px-2 py-2 bg-gradient-to-r from-indigo-900/95 to-purple-900/95 border-t border-white/10 shrink-0 z-30 gap-1">
+    <button class="nav-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-white/80 active" onclick="navTo('room',this)"><i data-lucide="home" style="width:20px;height:20px;"></i><span class="text-[10px]" data-lang="nav_room">房间</span></button>
+    <button class="nav-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-white/80" onclick="toggleCharSelect()"><i data-lucide="users" style="width:20px;height:20px;"></i><span class="text-[10px]" data-lang="nav_char">角色</span></button>
+    <button class="nav-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-white/80" onclick="navTo('shop',this)"><i data-lucide="shopping-bag" style="width:20px;height:20px;"></i><span class="text-[10px]" data-lang="nav_shop">商店</span></button>
+    <button class="nav-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-white/80" onclick="navTo('quest',this)"><i data-lucide="swords" style="width:20px;height:20px;"></i><span class="text-[10px]" data-lang="nav_quest">闯关</span></button>
+    <button class="nav-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-white/80" id="bgmBtn" onclick="toggleBGM()"><i data-lucide="music" style="width:20px;height:20px;"></i><span class="text-[10px]" data-lang="nav_bgm">音乐</span></button>
+    <button class="nav-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-white/80" onclick="exitToSplash()"><i data-lucide="log-out" style="width:20px;height:20px;"></i><span class="text-[10px]" data-lang="nav_exit">退出</span></button>
+    <div class="flex-1"></div>
+    <button class="nav-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-red-400/80 hover:text-red-300" onclick="showReset()" title="Reset Game"><i data-lucide="rotate-ccw" style="width:20px;height:20px;"></i><span class="text-[10px]" data-lang="reset_btn">重置</span></button>
+  </div>
+
+  <!-- ===== ALL MODALS ===== -->
+  <!-- Rules Modal -->
+  <div id="rulesModal" class="fixed inset-0 z-50 hidden items-center justify-center overlay-dim p-4">
+    <div class="modal-in bg-gradient-to-br from-indigo-900 to-purple-900 rounded-2xl shadow-2xl max-w-md w-full max-h-[85%] overflow-hidden border border-white/10">
+      <div class="p-5">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-white font-bold text-xl">📖 <span data-lang="rules_title">游戏规则</span></h2>
+          <button onclick="closeModal('rulesModal')" class="text-white/60 hover:text-white transition"><i data-lucide="x" style="width:22px;height:22px;"></i></button>
+        </div>
+        <div id="rulesContent" class="space-y-1"></div>
+        <div class="flex justify-between items-center gap-2 mt-4">
+          <button id="rulesPrev" onclick="rulesNav(-1)" class="px-4 py-2 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition text-sm">⬅</button>
+          <div id="rulesDots" class="flex gap-1"></div>
+          <button id="rulesNext" onclick="rulesNav(1)" class="px-4 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-400 transition text-sm font-medium"><span data-lang="next">下一步</span> ➡</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Room Select Modal -->
+  <div id="roomModal" class="fixed inset-0 z-50 hidden items-center justify-center overlay-dim p-4">
+    <div class="modal-in bg-gradient-to-br from-indigo-900 to-purple-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85%] overflow-hidden border border-white/10 flex flex-col">
+      <div class="p-5 shrink-0">
+        <div class="flex justify-between items-center">
+          <h2 class="text-white font-bold text-xl">🏠 <span data-lang="rooms_title">我的房间</span></h2>
+          <button onclick="closeModal('roomModal')" class="text-white/60 hover:text-white"><i data-lucide="x" style="width:22px;height:22px;"></i></button>
+        </div>
+      </div>
+      <div class="flex-1 overflow-y-auto px-5 min-h-0">
+        <div id="sceneGrid" class="scene-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shop Modal -->
+  <div id="shopModal" class="fixed inset-0 z-50 hidden items-center justify-center overlay-dim p-4">
+    <div class="modal-in bg-gradient-to-br from-indigo-900 to-purple-900 rounded-2xl shadow-2xl max-w-md w-full max-h-[85%] overflow-hidden border border-white/10 flex flex-col">
+      <div class="p-5 shrink-0">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-white font-bold text-xl">🛒 <span data-lang="shop_title">商店</span></h2>
+          <button onclick="closeModal('shopModal')" class="text-white/60 hover:text-white"><i data-lucide="x" style="width:22px;height:22px;"></i></button>
+        </div>
+        <div class="flex items-center gap-2 bg-yellow-500/10 px-3 py-2 rounded-lg mb-4">
+          <span class="coin-spin">🪙</span> <span class="text-yellow-300 font-bold" id="shopCoins">0</span>
+        </div>
+      </div>
+      <div class="flex gap-2 px-5 mb-4">
+        <button id="shopTabScenes" class="flex-1 px-3 py-2 rounded-lg bg-amber-500/30 border border-amber-400/50 text-amber-300 font-bold text-sm transition hover:bg-amber-500/40" onclick="switchShopTab('scenes')"><span data-lang="shop_scenes">场景</span></button>
+        <button id="shopTabChars" class="flex-1 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white/70 font-bold text-sm transition hover:bg-white/15" onclick="switchShopTab('chars')"><span data-lang="shop_chars">角色</span></button>
+      </div>
+      <div id="shopListContainer" class="flex-1 overflow-y-auto px-5 min-h-0 pb-4">
+        <div id="shopList" class="scene-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quest Modal -->
+  <div id="questModal" class="fixed inset-0 z-50 hidden items-center justify-center overlay-dim p-4">
+    <div class="modal-in bg-gradient-to-br from-indigo-900 to-purple-900 rounded-2xl shadow-2xl max-w-lg w-full max-h-[85%] overflow-hidden border border-white/10">
+      <div class="p-5">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-white font-bold text-xl">⚔️ <span data-lang="quest_title">文化闯关</span></h2>
+          <button onclick="closeModal('questModal')" class="text-white/60 hover:text-white"><i data-lucide="x" style="width:22px;height:22px;"></i></button>
+        </div>
+        <div id="questLevels" class="overflow-y-auto max-h-[65vh] pr-1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quiz Modal -->
+  <div id="quizModal" class="fixed inset-0 z-50 hidden items-center justify-center overlay-dim p-4">
+    <div class="modal-in bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90%] overflow-y-auto border border-white/10">
+      <div class="p-5">
+        <div class="flex justify-between items-center mb-2">
+          <span id="quizLevel" class="text-amber-400 font-bold text-sm">第 1 关</span>
+          <button onclick="closeModal('quizModal')" class="text-white/60 hover:text-white"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+        </div>
+        <p id="quizQ" class="text-white font-semibold text-base mb-4 leading-relaxed"></p>
+        <div id="quizOpts" class="space-y-2"></div>
+        <div id="quizFeedback" class="mt-3 text-center font-bold text-sm hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Achievement Modal -->
+  <div id="achieveModal" class="fixed inset-0 z-50 hidden items-center justify-center overlay-dim p-4">
+    <div class="modal-in bg-gradient-to-br from-indigo-900 to-purple-900 rounded-2xl shadow-2xl max-w-sm w-full border border-white/10">
+      <div class="p-5">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-white font-bold text-xl">🏆 <span data-lang="achieve_title">成就</span></h2>
+          <button onclick="closeModal('achieveModal')" class="text-white/60 hover:text-white"><i data-lucide="x" style="width:22px;height:22px;"></i></button>
+        </div>
+        <div id="achieveList" class="space-y-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BGM Modal -->
+  <div id="bgmModal" class="fixed inset-0 z-50 hidden items-center justify-center overlay-dim p-4">
+    <div class="modal-in bg-gradient-to-br from-indigo-900 to-purple-900 rounded-2xl shadow-2xl max-w-sm w-full border border-white/10">
+      <div class="p-5">
+        <h2 class="text-white font-bold text-lg mb-4 text-center">🎵 <span data-lang="bgm_title">音乐控制</span></h2>
+        <div class="space-y-2 mb-4">
+          <button id="bgmTrackDefault" onclick="setBGMTrack('default')" class="w-full px-3 py-2 rounded-lg font-bold text-sm transition bg-amber-500/30 border border-amber-400/50 text-amber-300 hover:bg-amber-500/40"><span data-lang="bgm_default">🎼 默认背景音</span></button>
+          <button id="bgmTrackXmas" onclick="setBGMTrack('xmas')" class="w-full px-3 py-2 rounded-lg font-bold text-sm transition bg-white/10 border border-white/20 text-white/70 hover:bg-white/15"><span data-lang="bgm_xmas">🎄 圣诞主题</span></button>
+          <button id="bgmTrackRaya" onclick="setBGMTrack('raya')" class="w-full px-3 py-2 rounded-lg font-bold text-sm transition bg-white/10 border border-white/20 text-white/70 hover:bg-white/15"><span data-lang="bgm_raya">🌙 开斋节主题</span></button>
+          <button id="bgmTrackCNY" onclick="setBGMTrack('cny')" class="w-full px-3 py-2 rounded-lg font-bold text-sm transition bg-white/10 border border-white/20 text-white/70 hover:bg-white/15"><span data-lang="bgm_cny">🧧 农历新年主题</span></button>
+        </div>
+        <button onclick="toggleBGMState()" id="bgmToggle" class="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mx-auto shadow-lg hover:shadow-xl transition text-2xl mb-3">🔊</button>
+        <div class="flex items-center gap-2 justify-center mb-4">
+          <span class="text-white/60 text-xs">🔈</span>
+          <input type="range" id="bgmVol" min="0" max="100" value="50" class="w-32 accent-amber-400" oninput="setBGMVol(this.value)">
+          <span class="text-white/60 text-xs">🔊</span>
+        </div>
+        <button onclick="closeModal('bgmModal')" class="w-full px-6 py-2 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 transition text-sm"><span data-lang="bgm_close">关闭</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Modal -->
+  <div id="resetModal" class="fixed inset-0 z-50 hidden items-center justify-center overlay-dim p-4">
+    <div class="modal-in bg-gradient-to-br from-red-900 to-rose-900 rounded-2xl shadow-2xl max-w-sm w-full border border-red-400/20">
+      <div class="p-5">
+        <div class="flex items-center gap-2 mb-4"><span class="text-2xl">⚠️</span>
+          <h2 class="text-white font-bold text-lg"><span data-lang="reset_confirm_title">确定重置游戏？</span></h2>
+        </div>
+        <p class="text-white/70 text-sm mb-5 leading-relaxed"><span data-lang="reset_confirm_desc">所有金币、已解锁场景和游戏进度将被清空。此操作无法撤销！</span></p>
+        <div class="flex gap-2">
+          <button onclick="closeModal('resetModal')" class="flex-1 px-4 py-2 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 transition text-sm font-medium"><span data-lang="cancel">取消</span></button>
+          <button onclick="confirmReset()" class="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition text-sm font-bold">✓ <span data-lang="reset_confirm">重置</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Character Select Modal -->
+  <div id="charSelectModal" class="fixed inset-0 z-50 hidden items-center justify-center overlay-dim p-4">
+    <div class="modal-in bg-gradient-to-br from-indigo-900 to-purple-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85%] overflow-hidden border border-white/10 flex flex-col">
+      <div class="p-5 shrink-0">
+        <div class="flex justify-between items-center">
+          <h2 class="text-white font-bold text-xl">👥 <span data-lang="char_select">选择角色</span></h2>
+          <button onclick="closeModal('charSelectModal')" class="text-white/60 hover:text-white"><i data-lucide="x" style="width:22px;height:22px;"></i></button>
+        </div>
+        <p class="text-white/50 text-xs mt-1" data-lang="char_desc">探索不同的文化角色</p>
+      </div>
+      <div class="flex-1 overflow-y-auto px-5 min-h-0 pb-4">
+        <div id="charGrid" class="scene-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] hidden">
+  <div class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-3 rounded-xl shadow-xl font-bold text-sm text-center modal-in">
+    <span id="toastMsg"></span>
+  </div>
+</div>
+</div>
+
+<script>
+// ============ STATE MANAGEMENT ============
+const STATE_KEY = 'rayaroom_pro_state';
+const state = {
+  lang: 'zh', coins: 0, currentScene: 0, unlockedScenes: [0],
+  currentChar: 'boy', ownedChars: ['boy', 'girl'],
+  completedQuests: [], firstTime: true,
+  bgmOn: false, bgmVol: 50, currentBGMTrack: 'default',
+  rulesPage: 0, charX: 50, charY: 55,
+};
+let audioCtx = null;
+let bgmAudio = null;
+const dom = { app:null, splash:null, gameScreen:null, roomBg:null, roomLabel:null, coinCount:null, character:null, roomArea:null, ambientCanvas:null, modals:{} };
+
+function initDomCache() {
+  dom.app = document.getElementById('app');
+  dom.splash = document.getElementById('splash');
+  dom.gameScreen = document.getElementById('gameScreen');
+  dom.roomBg = document.getElementById('roomBg');
+  dom.roomLabel = document.getElementById('roomLabel');
+  dom.coinCount = document.getElementById('coinCount');
+  dom.character = document.getElementById('character');
+  dom.roomArea = document.getElementById('roomArea');
+  dom.ambientCanvas = document.getElementById('ambientCanvas');
+  ['rulesModal','roomModal','shopModal','questModal','quizModal','achieveModal','bgmModal','resetModal','charSelectModal'].forEach(id => {
+    dom.modals[id] = document.getElementById(id);
+  });
+}
+
+// ============ ROOMS DATA ============
+const ROOMS = [
+  { id:'default', name_zh:'原场景', name_ms:'Bilik Asal', img:'https://files.catbox.moe/d2k0g3.png', price:0, ambient:'none' },
+  { id:'cny', name_zh:'农历新年', name_ms:'Tahun Baru Cina', img:'https://files.catbox.moe/v8l6ej.png', price:100, ambient:'lantern' },
+  { id:'raya', name_zh:'开斋节', name_ms:'Hari Raya Aidilfitri', img:'https://files.catbox.moe/6fbzl6.png', price:100, ambient:'sparkle' },
+  { id:'xmas', name_zh:'圣诞节', name_ms:'Krismas', img:'https://files.catbox.moe/m8mm32.png', price:100, ambient:'snow' },
+  { id:'pedro', name_zh:'海神节', name_ms:'Perayaan San Pedro', img:'https://files.catbox.moe/znowhm.png', price:100, ambient:'sparkle' },
+  { id:'dayak', name_zh:'达雅节', name_ms:'Pesta Kaamatan/Gawai', img:'https://files.catbox.moe/1g33bd.png', price:100, ambient:'sparkle' },
+  { id:'deepavali', name_zh:'屠妖节', name_ms:'Deepavali', img:'https://files.catbox.moe/6yiuld.png', price:100, ambient:'sparkle' },
+];
+
+// ============ CHARACTERS ============
+const CHARACTERS = [
+  { id:'boy', name_zh:'华族男孩', name_ms:'Budak Cina', img:'https://files.catbox.moe/8lmb55.png' },
+  { id:'girl', name_zh:'华族女孩', name_ms:'Gadis Cina', img:'https://files.catbox.moe/rwbt8q.png' },
+  { id:'chinese_boy', name_zh:'唐装男孩', name_ms:'Budak Tang Zhuang', img:'https://files.catbox.moe/f1i97q.png' },
+  { id:'chinese_girl', name_zh:'旗袍女孩', name_ms:'Gadis Qipao', img:'https://files.catbox.moe/dof5pe.png' },
+  { id:'malay_boy', name_zh:'马来男孩', name_ms:'Budak Melayu', img:'https://files.catbox.moe/h73nrl.png' },
+  { id:'malay_girl', name_zh:'马来女孩', name_ms:'Gadis Melayu', img:'https://files.catbox.moe/aibpwf.png' },
+  { id:'indian_boy', name_zh:'印度男孩', name_ms:'Budak India', img:'https://files.catbox.moe/kgw599.png' },
+  { id:'indian_girl', name_zh:'印度女孩', name_ms:'Gadis India', img:'https://files.catbox.moe/kwmhhd.png' },
+  { id:'xmas_boy', name_zh:'圣诞男孩', name_ms:'Budak Krismas', img:'https://files.catbox.moe/rivvdj.png' },
+  { id:'xmas_girl', name_zh:'圣诞女孩', name_ms:'Gadis Krismas', img:'https://files.catbox.moe/phqhjm.png' },
+];
+
+// ============ QUIZ DATA ============
+const QUIZ_BANK = [
+  { q_zh:"谁是马六甲每年圣佩德罗节（San Pedro）的庆祝者？", q_ms:"Siapakah yang menyambut perayaan San Pedro setiap tahun di Melaka?", ans_zh:"葡萄牙后裔", ans_ms:"Masyarakat Portugis", wrong_zh:["锡克教徒","印度裔","达雅族"], wrong_ms:["Kaum Sikh","Kaum India","Kaum Dayak"] },
+  { q_zh:"原住民群体在什么时候正式庆祝新年？", q_ms:"Bilakah masyarakat Orang Asli menyambut Tahun Baharu secara rasmi?", ans_zh:"6月1日", ans_ms:"1 Jun", wrong_zh:["1月1日","12月31日","8月30日"], wrong_ms:["1 Januari","31 Disember","30 Ogos"] },
+  { q_zh:"锡克教徒在庆祝希克历新年（Vaisakhi）时阅读的圣经名称是什么？", q_ms:"Apakah nama kitab suci yang dibaca oleh kaum Sikh semasa sambutan Vaisakhi?", ans_zh:"《古鲁·格兰特·萨希卜》", ans_ms:"Guru Granth Sahib", wrong_zh:["《古兰经》","《三藏经》","《吠陀经》"], wrong_ms:["Al-Quran","Tripitaka","Veda"] },
+  { q_zh:"哪个原住民部族庆祝根古兰节（Genggulang）以祈求村庄平安？", q_ms:"Suku kaum manakah yang menyambut Hari Genggulang untuk kesejahteraan kampung?", ans_zh:"瑟迈族（Semai）", ans_ms:"Semai", wrong_zh:["嘉坤族（Jakun）","特姆安族（Temuan）","玛美里族（Mah Meri）"], wrong_ms:["Jakun","Temuan","Mah Meri"] },
+  { q_zh:"穆斯林在1 Syawal前夕至开斋节祷告前进行的特定仪式是什么？", q_ms:"Apakah amalan khusus yang dilakukan oleh umat Islam pada malam 1 Syawal hingga sebelum solat Aidilfitri?", ans_zh:"诵读赞词（Bertakbir）", ans_ms:"Bertakbir", wrong_zh:["宰牲仪式","浴佛","吃团圆饭"], wrong_ms:["Ibadah Korban","Memandikan patung","Makan besar"] },
+  { q_zh:"在传统习俗中，为什么使用面粉来制作屠妖节\"古拉姆\"（Kolam）？", q_ms:"Dalam tradisi dahulu, mengapakah tepung digunakan untuk membuat Kolam Deepavali?", ans_zh:"为了给蚂蚁或昆虫提供食物", ans_ms:"Untuk memberi makan kepada semut/serangga", wrong_zh:["作为昂贵的装饰","因为当时大米很难获得","为了方便清理"], wrong_ms:["Sebagai hiasan yang mahal","Kerana beras sukar didapati","Untuk memudahkan pembersihan"] },
+  { q_zh:"哈芝节（Hari Raya Aidiladha）在10 Zulhijah庆祝，并延续至：", q_ms:"Hari Raya Aidiladha disambut pada 10 Zulhijah dan diteruskan dengan hari:", ans_zh:"Tasyrik日（11, 12, 13 Zulhijah）", ans_ms:"Tasyrik (11, 12, 13 Zulhijah)", wrong_zh:["元宵节","根古兰节","屠妖节"], wrong_ms:["Chap Goh Meh","Genggulang","Deepavali"] },
+  { q_zh:"圣佩德罗节期间经常表演的葡萄牙文化遗产舞蹈叫什么名字？", q_ms:"Apakah nama tarian warisan budaya Portugis yang sering dipersembahkan semasa Pesta San Pedro?", ans_zh:"布兰纽舞（Tarian Branyo）", ans_ms:"Tarian Branyo", wrong_zh:["舞狮","英雄舞（Ngajat）","苏马绍舞（Sumazau）"], wrong_ms:["Tarian Singa","Tarian Ngajat","Tarian Sumazau"] },
+  { q_zh:"哪个群体不分背景地提供免费食物（Langar）？", q_ms:"Masyarakat manakah yang mengamalkan pemberian makanan percuma (Langar) tanpa mengira latar belakang?", ans_zh:"锡克教徒", ans_ms:"Sikh", wrong_zh:["华裔","印度裔","葡萄牙后裔"], wrong_ms:["Cina","India","Portugis"] },
+  { q_zh:"在过去，达雅丰收节（Hari Gawai）主要仅由哪些人庆祝？", q_ms:"Dahulu, sambutan Hari Gawai hanya disambut oleh golongan:", ans_zh:"达雅族农民", ans_ms:"Petani kaum Dayak", wrong_zh:["渔民","商人","老师"], wrong_ms:["Nelayan","Pedagang","Guru"] },
+  { q_zh:"农历新年团圆饭的地点在过去和现在有何不同？", q_ms:"Apakah perbezaan tempat makan besar Tahun Baharu Cina antara dahulu dan kini?", ans_zh:"过去在家，现在包括餐馆或酒店", ans_ms:"Dahulu di rumah, kini termasuk restoran atau hotel", wrong_zh:["过去在酒店，现在在家","过去在照相馆，现在在酒店","地点没有任何区别"], wrong_ms:["Dahulu di hotel, kini di rumah","Dahulu di kedai gambar, kini di hotel","Tiada perbezaan tempat"] },
+  { q_zh:"圣佩德罗节中与该群体生计相关的核心活动是什么？", q_ms:"Apakah aktiviti utama dalam Pesta San Pedro berkaitan dengan mata pencarian masyarakat tersebut?", ans_zh:"装饰渔船游行与祈福", ans_ms:"Perarakan dan pemberkatan kapal nelayan", wrong_zh:["种稻","制作节日糕点","绘制蜡染"], wrong_ms:["Menanam padi","Membuat kuih raya","Mencanting batik"] },
+  { q_zh:"穆斯林进行宰牲仪式（Ibadah Korban）的主要目的是什么？", q_ms:"Apakah tujuan utama umat Islam melaksanakan Ibadah Korban?", ans_zh:"纪念先知易卜拉欣对真主的顺从", ans_ms:"Memperingati ketaatan Nabi Ibrahim a.s.", wrong_zh:["驱除恶灵","迎接新年","炫耀财富"], wrong_ms:["Menghalau roh jahat","Menyambut tahun baharu","Menunjuk-nunjuk kekayaan"] },
+  { q_zh:"现今，丰收节选美（Unduk Ngadau）的参赛者需要回答关于什么的问题？", q_ms:"Pada masa kini, peserta Unduk Ngadau perlu menjawab soalan tentang:", ans_zh:"历史与先辈的生活方式", ans_ms:"Sejarah dan kehidupan masyarakat lampau", wrong_zh:["如何种稻","正确的自拍技巧","现代糕点食谱"], wrong_ms:["Cara menanam padi","Teknik swafoto yang betul","Resipi kuih moden"] },
+  { q_zh:"卫塞节期间\"浴佛\"的象征意义是什么？", q_ms:"Apakah maksud simbolik memandikan patung Buddha Siddharta semasa Hari Wesak?", ans_zh:"净化身心", ans_ms:"Penyucian diri", wrong_zh:["为佛像降温","祈求降雨","展示创意"], wrong_ms:["Menyejukkan patung","Meminta hujan","Menunjuk kreativiti"] },
+  { q_zh:"根据希克历，希克历新年（Vaisakhi）在几月庆祝？", q_ms:"Dalam kalendar Sikh, Vaisakhi disambut pada bulan:", ans_zh:"Vaisakh月", ans_ms:"Vaisakh", wrong_zh:["Syawal月","Zulhijah月","一月"], wrong_ms:["Syawal","Zulhijah","Januari"] },
+  { q_zh:"哪些州属的原住民庆祝\"祖先日\"（Hari Moyang）？", q_ms:"Hari Moyang disambut oleh Orang Asli di negeri manakah?", ans_zh:"雪兰莪与森美兰", ans_ms:"Selangor dan Negeri Sembilan", wrong_zh:["沙巴与砂拉越","玻璃市与吉打","柔佛与马六甲"], wrong_ms:["Sabah dan Sarawak","Perlis dan Kedah","Johor dan Melaka"] },
+  { q_zh:"现今准备开斋节糕点的方式有何变化？", q_ms:"Apakah perubahan penyediaan kuih raya pada masa kini?", ans_zh:"使用现代设备或购买成品", ans_ms:"Menggunakan peralatan moden atau beli kuih siap", wrong_zh:["仅使用柴火","必须集体分工合作（Gotong-royong）","不再准备糕点"], wrong_ms:["Hanya menggunakan kayu api","Mesti dibuat secara gotong-royong","Tidak lagi menyediakan kuih"] },
+  { q_zh:"农历新年庆祝15天，并以哪一天结束？", q_ms:"Tahun Baharu Cina disambut selama 15 hari dan berakhir pada hari:", ans_zh:"元宵节（Chap Goh Meh）", ans_ms:"Chap Goh Meh", wrong_zh:["希克历新年","圣佩德罗节","卫塞节"], wrong_ms:["Vaisakhi","San Pedro","Wesak"] },
+  { q_zh:"圣佩德罗节所敬奉的渔民守护圣人是谁？", q_ms:"Siapakah santo pelindung nelayan yang dihormati dalam Pesta San Pedro?", ans_zh:"圣佩德罗（San Pedro）", ans_ms:"San Pedro", wrong_zh:["佛陀","古鲁那纳克（Guru Nanak）","胡米诺顿（Huminodun）"], wrong_ms:["Buddha","Guru Nanak","Huminodun"] },
+  { q_zh:"达雅丰收节主要表达什么情感？", q_ms:"Apakah perasaan utama yang ingin dizahirkan melalui sambutan Hari Gawai?", ans_zh:"对丰收的感谢", ans_ms:"Kesyukuran atas hasil tuaian", wrong_zh:["悲伤","愤怒","对鬼魂的恐惧"], wrong_ms:["Kesedihan","Kemarahan","Ketakutan kepada hantu"] },
+  { q_zh:"现今的全家福拍摄习惯有何变化？", q_ms:"Bagaimanakah amalan foto keluarga berubah pada masa kini?", ans_zh:"倾向于自拍（Selfie）和社交媒体", ans_ms:"Lebih gemar swafoto (selfie) dan media sosial", wrong_zh:["必须去照相馆","不再拍照","使用手绘像"], wrong_ms:["Perlu ke kedai gambar","Tidak lagi mengambil gambar","Menggunakan lukisan tangan"] },
+  { q_zh:"华人表演舞狮的目的是什么？", q_ms:"Apakah tujuan masyarakat Cina mempersembahkan Tarian Singa?", ans_zh:"驱邪避灾，消除霉运", ans_ms:"Menolak unsur buruk dan kesialan", wrong_zh:["索取捐款","迎接外国游客","教授武术"], wrong_ms:["Meminta derma","Menyambut tetamu asing","Mengajar seni bela diri"] },
+  { q_zh:"穆斯林在庆祝开斋节之前需要斋戒多久？", q_ms:"Berapakah tempoh umat Islam berpuasa sebelum menyambut Aidilfitri?", ans_zh:"一个月（斋戒月）", ans_ms:"Satu bulan (Ramadan)", wrong_zh:["一个星期","一年","15天"], wrong_ms:["Satu minggu","Satu tahun","15 hari"] },
+  { q_zh:"\"诵读赞词\"（Bertakbir）是为了赞美：", q_ms:"Amalan \"Bertakbir\" dilakukan untuk memuji:", ans_zh:"真主的伟大", ans_ms:"Kebesaran Allah", wrong_zh:["村长","自然之美","体育成就"], wrong_ms:["Ketua kampung","Keindahan alam","Kejayaan sukan"] },
+  { q_zh:"在传统习俗中，丰收节选美（Unduk Ngadau）是基于什么精神？", q_ms:"Dalam tradisi dahulu, Pesta Kaamatan (Unduk Ngadau) adalah berdasarkan semangat:", ans_zh:"胡米诺顿（自我牺牲）精神", ans_ms:"Huminodun (pengorbanan)", wrong_zh:["竞争","商业","体育"], wrong_ms:["Persaingan","Perniagaan","Sukan"] },
+  { q_zh:"现今制作屠妖节\"古拉姆\"（Kolam）使用什么材料？", q_ms:"Apakah bahan yang digunakan untuk membuat Kolam Deepavali pada masa kini?", ans_zh:"彩色大米或染色椰丝", ans_ms:"Beras atau hampas kelapa berwarna", wrong_zh:["细沙","油漆","彩纸"], wrong_ms:["Pasir halus","Cat minyak","Kertas warna"] },
+  { q_zh:"哪个原住民部族庆祝\"祖先日\"（Hari Moyang）？", q_ms:"Siapakah antara suku kaum Orang Asli yang menyambut Hari Moyang?", ans_zh:"玛美里族（Mah Meri）", ans_ms:"Mah Meri", wrong_zh:["达雅族","卡达山族","锡克裔"], wrong_ms:["Dayak","Kadazan","Sikh"] },
+  { q_zh:"现今最流行的节日祝贺方式是什么？", q_ms:"Apakah cara ucapan perayaan yang paling popular pada masa kini?", ans_zh:"社交媒体与电子媒体", ans_ms:"Media sosial dan media elektronik", wrong_zh:["邮寄纸质贺卡","使用电报","写在布告栏"], wrong_ms:["Kad ucapan melalui pos","Menggunakan telegraf","Menulis di papan tanda"] },
+  { q_zh:"哈芝节也旨在向哪些人提供福利支持？", q_ms:"Hari Raya Aidiladha juga bertujuan untuk memberikan kebajikan kepada:", ans_zh:"贫民与弱势群体", ans_ms:"Golongan miskin dan fakir", wrong_zh:["有钱人","宠物","外国游客"], wrong_ms:["Orang kaya","Haiwan peliharaan","Pelancong asing"] },
+];
+const QUIZ_BANK_2 = [
+  { q_zh:"在马来西亚，开斋期间的\"门户开放\"（Rumah Terbuka）活动强调了什么核心价值？", q_ms:"Apakah nilai utama yang ditekankan melalui amalan rumah terbuka semasa musim perayaan di Malaysia?", ans_zh:"各族间的团结与和谐", ans_ms:"Perpaduan dan keharmonian antara kaum", wrong_zh:["各族间的竞争","个人的经济利益","炫耀房屋的豪华"], wrong_ms:["Persaingan antara kaum","Kepentingan ekonomi individu","Menunjuk-nunjuk kemewahan rumah"] },
+  { q_zh:"穆斯林同胞带着感恩之心庆祝开斋节的原因是什么？", q_ms:"Mengapakah masyarakat Islam menyambut Hari Raya Aidilfitri dengan penuh kesyukuran?", ans_zh:"因为成功完成了斋戒并战胜了欲望", ans_ms:"Kerana berjaya menunaikan ibadah puasa dan menahan hawa nafsu", wrong_zh:["因为可以享受长假","因为可以收集到很多青包","因为工作季节结束了"], wrong_ms:["Kerana dapat bercuti panjang","Kerana dapat mengumpul banyak duit raya","Kerana tamatnya musim bekerja"] },
+  { q_zh:"\"Tasyrik日\"在哈芝节庆祝活动中的重要性是什么？", q_ms:"Apakah kepentingan 'Hari Tasyrik' dalam sambutan Hari Raya Aidiladha?", ans_zh:"继续进行宰牲活动的日子（11, 12, 13 Zulhijah）", ans_ms:"Hari penerusan ibadah korban (11, 12, dan 13 Zulhijah)", wrong_zh:["开始六天禁食的日子","庆祝新年的日子","仅用于举办门户开放活动的日子"], wrong_ms:["Hari untuk memulakan puasa enam","Hari untuk menyambut tahun baharu","Hari untuk mengadakan rumah terbuka sahaja"] },
+  { q_zh:"农历新年期间派发红包象征着：", q_ms:"Pemberian angpau dalam masyarakat Cina semasa Tahun Baharu Cina melambangkan:", ans_zh:"对接收者的祝福、财运与庇佑", ans_ms:"Simbol doa, rezeki, dan perlindungan kepada penerima", wrong_zh:["偿还旧债","家庭之间的财富竞争","吃团圆饭的先决条件"], wrong_ms:["Pembayaran hutang lama","Persaingan kekayaan antara keluarga","Syarat utama untuk makan besar"] },
+  { q_zh:"舞龙在中华文化中的主要角色是什么？", q_ms:"Apakah peranan utama Tarian Naga dalam kebudayaan masyarakat Cina?", ans_zh:"驱邪避灾，带来好运与繁荣", ans_ms:"Menolak unsur buruk dan membawa tuah serta kemakmuran", wrong_zh:["纯粹作为一种体育活动","为了取悦外国游客","作为新店开业的必要条件"], wrong_ms:["Sebagai aktiviti sukan semata-mata","Untuk menghiburkan pelancong asing","Sebagai syarat pembukaan kedai baharu"] },
+  { q_zh:"印度教徒为何在\"无月日\"（Amavasya）庆祝屠妖节？", q_ms:"Mengapakah penganut agama Hindu merayakan Deepavali pada hari bulan baharu (Amavasya)?", ans_zh:"根据印度历，象征光明战胜黑暗", ans_ms:"Mengikut kalendar lunar Hindu bagi melambangkan kemenangan cahaya", wrong_zh:["标志着雨季的开始","因为那天是公共假期","标志着斋戒期的结束"], wrong_ms:["Menandakan bermulanya musim hujan","Kerana hari tersebut merupakan hari cuti umum","Menandakan berakhirnya tempoh berpuasa"] },
+  { q_zh:"在大宝森节期间，用罐子盛奶（Kavadi）的深层含义是什么？", q_ms:"Apakah maksud tersirat di sebalik amalan membawa susu dalam belanga semasa perayaan Thaipusam?", ans_zh:"作为履行誓愿及对姆鲁干神忠诚的象征", ans_ms:"Sebagai persembahan nazar dan tanda kesetiaan kepada Dewa Murugan", wrong_zh:["作为其他信徒的饮料供应","为了在家中沐浴神像","作为烹饪传统食物的材料"], wrong_ms:["Sebagai bekalan minuman untuk penganut lain","Untuk memandikan patung di rumah","Sebagai bahan untuk memasak makanan tradisional"] },
+  { q_zh:"以下哪项是卫塞节期间的善行？", q_ms:"Antara berikut, yang manakah merupakan amalan murni semasa Hari Wesak?", ans_zh:"向僧侣和有需要的人分发食物", ans_ms:"Mengagihkan makanan kepada sami dan golongan memerlukan", wrong_zh:["举行火舞表演","在沿路安装灯笼","禁食30天"], wrong_ms:["Mengadakan persembahan tarian api","Memasang pelita di sepanjang jalan","Berpuasa selama 30 hari"] },
+  { q_zh:"锡克教徒庆祝希克历新年（Vaisakhi）是为了纪念：", q_ms:"Masyarakat Sikh menyambut Vaisakhi bagi memperingati:", ans_zh:"希克教的重要性并感谢丰收", ans_ms:"Kepentingan agama Sikh dan mensyukuri hasil tuaian", wrong_zh:["家族族长的生日","古代战争的胜利","马来西亚第一座锡克庙的建立"], wrong_ms:["Hari kelahiran ketua keluarga","Kemenangan dalam peperangan purba","Pembinaan Gurdwara pertama di Malaysia"] },
+  { q_zh:"瑟迈族（Semai）庆祝根古兰节（Genggulang）的主要目标是什么？", q_ms:"Apakah objektif utama sambutan Hari Genggulang oleh suku kaum Semai?", ans_zh:"祈求村庄居民的平安与福祉", ans_ms:"Memohon kesejahteraan dan keselamatan penduduk kampung", wrong_zh:["为稻米祈雨","庆祝族长的生日","标志着狩猎季节的开始"], wrong_ms:["Memohon hujan untuk tanaman padi","Meraikan hari kelahiran ketua kaum","Menandakan bermulanya musim memburu"] },
+  { q_zh:"原住民庆祝\"祖先日\"（Hari Moyang）的目的是：", q_ms:"Hari Moyang disambut oleh masyarakat Orang Asli bertujuan untuk:", ans_zh:"祭奠并尊重祖先的灵魂", ans_ms:"Meraikan dan menghormati roh nenek moyang", wrong_zh:["寻找新的定居点","举办传统舞蹈比赛","驱赶村庄里的野生动物"], wrong_ms:["Mencari kawasan petempatan baharu","Mengadakan pertandingan tarian tradisional","Menghalau haiwan liar dari kampung"] },
+  { q_zh:"马六甲圣佩德罗节期间举行渔船游行的原因是什么？", q_ms:"Mengapakah perarakan kapal nelayan diadakan semasa Pesta San Pedro di Melaka?", ans_zh:"祈求渔民的平安和丰收", ans_ms:"Memohon keselamatan dan rezeki yang melimpah bagi para nelayan", wrong_zh:["为了吸引外国游客的注意","标志着赛船季节的开始","为了高价出售海鲜"], wrong_ms:["Untuk menarik perhatian pelancong asing","Menandakan bermulanya musim perlumbaan bot","Untuk menjual hasil laut dengan harga tinggi"] },
+  { q_zh:"现今社会发送节日祝福最显著的变化是什么？", q_ms:"Apakah perubahan yang paling ketara dalam cara masyarakat menghantar ucapan perayaan pada masa kini?", ans_zh:"广泛使用社交媒体和即时通讯应用", ans_ms:"Penggunaan media sosial dan aplikasi mesej segera secara meluas", wrong_zh:["使用挂号信","仅通过广播电台播报","使用手工制作的贺卡"], wrong_ms:["Penggunaan surat berdaftar","Penggunaan hebahan di corong radio sahaja","Penggunaan kad ucapan buatan sendiri"] },
+  { q_zh:"过去，制作屠妖节\"古拉姆\"使用面粉的目的是：", q_ms:"Dahulu, Kolam Deepavali dihasilkan daripada tepung untuk tujuan:", ans_zh:"作为一种善行，给小昆虫提供食物", ans_ms:"Memberi makan kepada serangga kecil sebagai amalan kebajikan", wrong_zh:["节省装饰成本","遵循宗教领袖的指示","确保地板不滑"], wrong_ms:["Menjimatkan kos hiasan","Mengikut arahan ketua agama","Memastikan lantai tidak licin"] },
+  { q_zh:"农历新年\"团圆饭\"的习俗如何随时代变迁？", q_ms:"Bagaimanakah amalan 'Makan Besar' Tahun Baharu Cina berubah mengikut peredaran zaman?", ans_zh:"以前在家中，现在可灵活选择在餐馆或酒店", ans_ms:"Dahulu diadakan di rumah, kini lebih fleksibel di restoran atau hotel", wrong_zh:["以前在餐馆，现在只在家中","以前只有男性参加，现在所有家庭成员都参加","以前在早上，现在在晚上"], wrong_ms:["Dahulu diadakan di restoran, kini hanya di rumah","Dahulu hanya dihadiri oleh lelaki, kini semua ahli keluarga","Dahulu diadakan pada waktu pagi, kini pada waktu malam"] },
+  { q_zh:"现今准备节日糕点（Kuih Raya）变得更容易是因为：", q_ms:"Penyediaan Kuih Raya pada masa kini lebih mudah kerana:", ans_zh:"现代设备的使用以及市场上已有现成的糕点", ans_ms:"Penggunaan peralatan moden dan kewujudan kuih siap masak di pasaran", wrong_zh:["每个人都有佣人","节日糕点不再是必备食品","政府向人民提供节日糕点"], wrong_ms:["Semua orang mempunyai pembantu rumah","Kuih raya tidak lagi menjadi hidangan wajib","Kerajaan membekalkan kuih raya kepada rakyat"] },
+  { q_zh:"现今丰收节选美（Unduk Ngadau）中加入历史问题的重要性是什么？", q_ms:"Apakah kepentingan soalan tentang sejarah dalam pertandingan Unduk Ngadau masa kini?", ans_zh:"确保年轻一代了解文化遗产和过往的身份认同", ans_ms:"Memastikan generasi muda memahami warisan dan identiti budaya lampau", wrong_zh:["为了延长比赛时间","为了选出最漂亮的冠军","作为赢得奖金的条件"], wrong_ms:["Untuk memanjangkan tempoh pertandingan","Untuk memilih pemenang yang paling cantik sahaja","Sebagai syarat untuk memenangi hadiah wang tunai"] },
+  { q_zh:"自拍技术如何影响当今的节日庆祝？", q_ms:"Bagaimanakah teknologi swafoto (selfie) mempengaruhi sambutan perayaan hari ini?", ans_zh:"方便在社交媒体上即时分享快乐瞬间", ans_ms:"Memudahkan perkongsian momen kegembiraan secara langsung di media sosial", wrong_zh:["人们不再喜欢面对面聚会","导致庆祝成本变得更贵","废除了穿传统服装的传统"], wrong_ms:["Masyarakat tidak lagi suka berkumpul secara bersemuka","Menyebabkan kos perayaan menjadi lebih mahal","Menghapuskan tradisi memakai pakaian tradisional"] },
+  { q_zh:"达雅丰收节（Hari Gawai）和丰收节（Pesta Kaamatan）有什么共同点？", q_ms:"Apakah persamaan antara Hari Gawai dan Pesta Kaamatan?", ans_zh:"两者都是婆罗洲社会的丰收节", ans_ms:"Kedua-duanya merupakan pesta menuai bagi masyarakat di Borneo", wrong_zh:["两者都在同一天（12月31日）庆祝","两者仅在西马庆祝","两者都不涉及宗教仪式"], wrong_ms:["Kedua-duanya disambut pada tarikh yang sama iaitu 31 Disember","Kedua-duanya hanya disambut di Semenanjung Malaysia","Kedua-duanya tidak melibatkan upacara ritual"] },
+  { q_zh:"总的来说，为什么马来西亚的节日需要被保护？", q_ms:"Secara keseluruhannya, mengapakah perayaan di Malaysia perlu dipelihara?", ans_zh:"为了保留文化认同并加强国家团结", ans_ms:"Untuk mengekalkan identiti budaya dan mengukuhkan perpaduan nasional", wrong_zh:["为了确保人民经常有假期","作为国家资产丰厚的象征","为了增加超市商品的销量"], wrong_ms:["Untuk memastikan rakyat sentiasa bercuti","Sebagai lambang kekayaan aset negara","Bagi meningkatkan jualan barangan di pasar raya"] },
+];
+
+const ALL_QUESTIONS = [...QUIZ_BANK, ...QUIZ_BANK_2];
+const QUIZZES = [];
+const allQuestions = [...ALL_QUESTIONS].sort(() => Math.random() - 0.5);
+for(let i = 1; i <= 10; i++){
+  QUIZZES.push({ id: i, locked: i > 1, questions: allQuestions.slice((i-1)*5, i*5) });
+}
+
+// ============ RULES ============
+const RULES = [
+  { icon:'🧭', title_zh:'探索与互动', title_ms:'Teroka & Interaksi', text_zh:'自由拖拽角色探索不同的节庆房间，感受马来西亚的文化魅力。', text_ms:'Pilih watak anda untuk meneroka bilik perayaan dan menikmati keunikan budaya Malaysia.' },
+  { icon:'⚔️', title_zh:'挑战关卡', title_ms:'Cabaran Kuiz', text_zh:'点击"闯关"进入答题。每关包含100块钱奖励，答错需重试直到成功。', text_ms:'Klik "Misi" untuk menjawab soalan. Setiap tahap memberi ganjaran RM100. Cuba lagi sehingga betul.' },
+  { icon:'🏠', title_zh:'收集场景', title_ms:'Kumpul Bilik', text_zh:'使用赚取的金币在"商店"购买解锁新场景，每个场景价值100块。', text_ms:'Guna duit untuk beli bilik baharu di "Shop". Setiap bilik berharga RM100.' },
+  { icon:'👥', title_zh:'收集角色', title_ms:'Kumpul Watak', text_zh:'探索多彩的文化角色！在商店购买新角色，每个角色50块。点击"角色"按钮随时切换。', text_ms:'Teroka pelbagai watak budaya! Beli watak baharu di Kedai, setiap satu RM50. Tekan butang "Watak" untuk tukar.' },
+  { icon:'🎵', title_zh:'背景音乐', title_ms:'Muzik Latar', text_zh:'点击"音乐"按钮开启/关闭背景音乐。选择不同的主题音乐，调整音量享受沉浸式体验。', text_ms:'Klik butang "Muzik" untuk nyalakan/matikan lagu latar. Pilih muzik tema berbeza dan laras volum untuk pengalaman penuh.' },
+  { icon:'💾', title_zh:'保存进度', title_ms:'Simpan Rekod', text_zh:'你的金币、角色、房间和成就将自动保存。', text_ms:'Duit, watak, bilik dan pencapaian disimpan secara automatik.' },
+];
+
+// ============ ACHIEVEMENTS ============
+const ACHIEVEMENTS = [
+  { id:'a1', icon:'🌟', title_zh:'初级探险家', title_ms:'Peneroka Awal', desc_zh:'收集5个场景', desc_ms:'Kumpul 5 bilik', need:5 },
+  { id:'a2', icon:'🏅', title_zh:'文化达人', title_ms:'Pakar Budaya', desc_zh:'完成10道题', desc_ms:'Selesai 10 soalan', need:10 },
+  { id:'a3', icon:'👑', title_zh:'遗产守护者', title_ms:'Penjaga Warisan', desc_zh:'收集全部场景', desc_ms:'Kumpul semua bilik', need:6 },
+];
+
+// ============ LANG ============
+const L = {
+  start_btn:{zh:'开始探险 Mula!',ms:'Mula Meneroka!'},nav_room:{zh:'房间',ms:'Bilik'},nav_shop:{zh:'商店',ms:'Kedai'},
+  nav_char:{zh:'角色',ms:'Watak'},nav_quest:{zh:'闯关',ms:'Misi'},nav_bgm:{zh:'音乐',ms:'Muzik'},nav_exit:{zh:'退出',ms:'Keluar'},
+  rules_title:{zh:'游戏规则',ms:'Peraturan'},next:{zh:'下一步',ms:'Seterusnya'},rooms_title:{zh:'我的房间',ms:'Bilik Saya'},
+  shop_title:{zh:'场景商店',ms:'Kedai Bilik'},shop_scenes:{zh:'场景',ms:'Bilik'},shop_chars:{zh:'角色',ms:'Watak'},
+  quest_title:{zh:'文化闯关',ms:'Misi Budaya'},achieve_title:{zh:'成就',ms:'Pencapaian'},
+  bgm_title:{zh:'音乐控制',ms:'Kawalan Muzik'},char_select:{zh:'选择角色',ms:'Pilih Watak'},
+  char_desc:{zh:'探索不同的文化角色',ms:'Teroka pelbagai watak budaya'},
+  bgm_default:{zh:'默认背景音',ms:'Muzik Latar Belakang Lalai'},bgm_xmas:{zh:'圣诞主题',ms:'Tema Krismas'},
+  bgm_raya:{zh:'开斋节主题',ms:'Tema Hari Raya'},bgm_cny:{zh:'农历新年主题',ms:'Tema Tahun Baru Cina'},
+  bgm_close:{zh:'关闭',ms:'Tutup'},owned:{zh:'已收藏',ms:'Dimiliki'},buy:{zh:'购买',ms:'Beli'},
+  current:{zh:'当前',ms:'Semasa'},use:{zh:'使用',ms:'Guna'},completed:{zh:'已完成 ✅',ms:'Selesai ✅'},
+  start_quest:{zh:'开始挑战',ms:'Mula Cabaran'},locked:{zh:'🔒 题目即将开放',ms:'🔒 Akan Datang'},
+  not_enough:{zh:'金币不足！',ms:'Duit tidak cukup!'},bought:{zh:'购买成功！',ms:'Berjaya dibeli!'},
+  correct:{zh:'✅ 太棒了！',ms:'✅ Hebat!'},wrong:{zh:'❌ 不正确，请重试！',ms:'❌ Salah, cuba lagi!'},
+  unlocked:{zh:'已解锁',ms:'Dibuka'},not_yet:{zh:'未达成',ms:'Belum dicapai'},
+  reset_confirm_title:{zh:'确定重置游戏？',ms:'Pasti Mula Semula Permainan?'},
+  reset_confirm_desc:{zh:'所有金币、已解锁场景和游戏进度将被清空。此操作无法撤销！',ms:'Semua duit, bilik dan kemajuan akan dihapus. Tidak boleh dibuat asal!'},
+  cancel:{zh:'取消',ms:'Batal'},reset_btn:{zh:'重置',ms:'Semula'},reset_confirm:{zh:'重置',ms:'Semula'},
+};
+function t(key){ return L[key] ? (L[key][state.lang] || L[key]['zh']) : key; }
+
+function setLang(l){
+  state.lang = l;
+  document.getElementById('langZh').className = `px-4 py-2 rounded-full text-sm font-medium text-white transition ${l==='zh'?'bg-white/20 hover:bg-white/30':'bg-white/10 hover:bg-white/30'}`;
+  document.getElementById('langMs').className = `px-4 py-2 rounded-full text-sm font-medium text-white transition ${l==='ms'?'bg-white/20 hover:bg-white/30':'bg-white/10 hover:bg-white/30'}`;
+  document.querySelectorAll('[data-lang]').forEach(el => {
+    const k = el.getAttribute('data-lang'); if(L[k]) el.textContent = L[k][state.lang] || L[k]['zh'];
+  });
+  updateRoomLabel(); saveState();
+}
+
+// ============ SAVE/LOAD ============
+function saveState(){ localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
+function loadState(){ try { const s = localStorage.getItem(STATE_KEY); if(s) Object.assign(state, JSON.parse(s)); } catch(e){} }
+
+// ============ GAME START ============
+function startGame(){
+  playClick(); dom.splash.classList.add('hidden'); dom.gameScreen.classList.remove('hidden');
+  updateCoinDisplay(); applyScene(); applyCharacter(); setupDrag(); startAmbient(); setLang(state.lang);
+  state.bgmOn = true; document.getElementById('bgmToggle').textContent = '🔊'; startBGM();
+  if(state.firstTime){ state.firstTime = false; saveState(); setTimeout(()=>showRules(), 600); }
+}
+function exitToSplash(){ playClick(); saveState(); stopBGM(); state.bgmOn = false; dom.gameScreen.classList.add('hidden'); dom.splash.classList.remove('hidden'); stopAmbient(); }
+
+// ============ COINS ============
+function updateCoinDisplay(){ dom.coinCount.textContent = state.coins; const sc = document.getElementById('shopCoins'); if(sc) sc.textContent = state.coins; }
+function addCoins(amount){
+  const fly = document.createElement('div'); fly.className = 'coin-fly'; fly.textContent = '🪙';
+  fly.style.left = '50%'; fly.style.top = '40%'; fly.style.setProperty('--tx','120px'); fly.style.setProperty('--ty','-200px');
+  document.body.appendChild(fly); setTimeout(()=>fly.remove(), 900);
+  const target = state.coins + amount, step = Math.ceil(amount / 15);
+  const iv = setInterval(()=>{ state.coins = Math.min(state.coins + step, target); dom.coinCount.textContent = state.coins; if(state.coins >= target){ clearInterval(iv); state.coins = target; dom.coinCount.textContent = state.coins; } }, 30);
+  dom.coinCount.classList.add('num-bump'); setTimeout(()=>dom.coinCount.classList.remove('num-bump'), 600);
+  setTimeout(()=>{ updateCoinDisplay(); saveState(); }, 500);
+}
+
+// ============ SCENES ============
+function applyScene(){ const scene = ROOMS[state.currentScene]; if(!scene) return; dom.roomBg.src = scene.img; updateRoomLabel(); startAmbient(); }
+function updateRoomLabel(){ const scene = ROOMS[state.currentScene]; if(!scene) return; dom.roomLabel.textContent = state.lang === 'zh' ? scene.name_zh : scene.name_ms; }
+function setScene(index){
+  if(!state.unlockedScenes.includes(index)) return; playClick(); state.currentScene = index; applyScene();
+  const bg = dom.roomBg; bg.classList.remove('scene-fade-out','scene-fade-in'); void bg.offsetWidth; bg.classList.add('scene-fade-in');
+  setTimeout(()=> bg.classList.remove('scene-fade-in'), 400); closeModal('roomModal'); saveState();
+}
+
+// ============ CHARACTERS ============
+function getCharacter(id){ return CHARACTERS.find(c=>c.id===id) || CHARACTERS[0]; }
+function applyCharacter(){ const char = getCharacter(state.currentChar); dom.character.src = char.img; dom.character.style.left = state.charX+'%'; dom.character.style.top = state.charY+'%'; dom.character.style.transform = 'translate(-50%, -50%)'; }
+function toggleCharSelect(){ playClick(); renderCharSelectModal(); showModal('charSelectModal'); }
+function renderCharSelectModal(){
+  const m = dom.modals['charSelectModal'];
+  m.innerHTML = `<div class="modal-in bg-gradient-to-br from-indigo-900 to-purple-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85%] overflow-hidden border border-white/10 flex flex-col">
+    <div class="p-5 shrink-0"><div class="flex justify-between items-center"><h2 class="text-white font-bold text-xl">👥 ${t('char_select')}</h2><button onclick="closeModal('charSelectModal')" class="text-white/60 hover:text-white"><i data-lucide="x" style="width:22px;height:22px;"></i></button></div></div>
+    <div class="flex-1 overflow-y-auto px-5 min-h-0 pb-4"><div id="charGrid" class="scene-grid"></div></div></div>`;
+  document.getElementById('charGrid').innerHTML = CHARACTERS.map(c=>{
+    const isActive = state.currentChar===c.id, isOwned = state.ownedChars.includes(c.id);
+    return `<div class="scene-card ${isActive?'active':''} ${!isOwned?'locked':''}" onclick="${isOwned?`setCharAndClose('${c.id}')`:''}"><img src="${c.img}" alt="${state.lang==='zh'?c.name_zh:c.name_ms}" loading="lazy" style="object-fit:contain;background:linear-gradient(135deg,#1a1a2e,#2d1b69);"><div class="label">${state.lang==='zh'?c.name_zh:c.name_ms} ${!isOwned?'🔒':''}</div></div>`;
+  }).join('');
+  lucide.createIcons();
+}
+function setCharAndClose(c){ playClick(); if(!state.ownedChars.includes(c)) return; state.currentChar = c; applyCharacter(); saveState(); setTimeout(()=>closeModal('charSelectModal'),150); }
+function buyChar(charId){
+  if(state.ownedChars.includes(charId)){ showToast(t('owned')); return; }
+  if(state.coins < 50){ showToast(t('not_enough'), 'red'); return; }
+  playClick(); state.coins -= 50; state.ownedChars.push(charId); updateCoinDisplay(); saveState(); showToast(t('bought')); renderShopList();
+}
+
+// ============ DRAG ============
+function setupDrag(){
+  const ch = dom.character, area = dom.roomArea; let dragging = false;
+  ch.addEventListener('mousedown', ()=>{ dragging=true; ch.classList.add('dragging'); });
+  document.addEventListener('mousemove', e=>{ if(!dragging) return; const ar=area.getBoundingClientRect(); state.charX=(e.clientX-ar.left)/ar.width*100; state.charY=(e.clientY-ar.top)/ar.height*100; ch.style.left=state.charX+'%'; ch.style.top=state.charY+'%'; });
+  document.addEventListener('mouseup', ()=>{ dragging=false; ch.classList.remove('dragging'); saveState(); });
+  ch.addEventListener('touchstart', e=>{ e.preventDefault(); dragging=true; ch.classList.add('dragging'); }, {passive:false});
+  document.addEventListener('touchmove', e=>{ if(!dragging) return; e.preventDefault(); const ar=area.getBoundingClientRect(); const touch=e.touches[0]; state.charX=(touch.clientX-ar.left)/ar.width*100; state.charY=(touch.clientY-ar.top)/ar.height*100; ch.style.left=state.charX+'%'; ch.style.top=state.charY+'%'; }, {passive:false});
+  document.addEventListener('touchend', ()=>{ dragging=false; ch.classList.remove('dragging'); saveState(); });
+}
+
+// ============ AMBIENT ============
+let ambientAnim = null, goldParticleInterval = null;
+function stopAmbient(){ if(ambientAnim) cancelAnimationFrame(ambientAnim); ambientAnim=null; if(goldParticleInterval) clearInterval(goldParticleInterval); goldParticleInterval=null; document.querySelectorAll('.gold-particle').forEach(p=>p.remove()); }
+function spawnGoldParticles(){ const gs=document.getElementById('gameScreen'); if(!gs) return; for(let i=0;i<4;i++){const p=document.createElement('div');p.className='gold-particle';p.style.left=Math.random()*100+'%';p.style.bottom='-5px';const size=4+Math.random()*3;p.style.width=size+'px';p.style.height=size+'px';p.style.animationDelay=Math.random()*0.3+'s';gs.appendChild(p);setTimeout(()=>{if(p.parentNode)p.remove();},3200);} }
+function startGoldParticles(){ if(goldParticleInterval) clearInterval(goldParticleInterval); goldParticleInterval=setInterval(spawnGoldParticles,350); }
+function startAmbient(){
+  stopAmbient(); const canvas=dom.ambientCanvas, ctx=canvas.getContext('2d'); const scene=ROOMS[state.currentScene]; if(!scene) return;
+  canvas.width=canvas.offsetWidth; canvas.height=canvas.offsetHeight;
+  if(scene.ambient==='snow'){
+    const flakes=Array.from({length:40},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*3+1,speed:Math.random()*1+0.5,drift:Math.random()*0.5-0.25}));
+    (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);flakes.forEach(f=>{ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,0.7)';ctx.fill();f.y+=f.speed;f.x+=f.drift;if(f.y>canvas.height){f.y=-5;f.x=Math.random()*canvas.width;}});ambientAnim=requestAnimationFrame(draw);})();
+  } else if(scene.ambient==='lantern'){
+    let tt=0;(function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);for(let i=0;i<5;i++){const x=canvas.width*(0.15+i*0.18),y=30+Math.sin(tt*0.02+i)*8;const g=ctx.createRadialGradient(x,y,2,x,y,20);g.addColorStop(0,'rgba(255,180,50,0.5)');g.addColorStop(1,'rgba(255,100,20,0)');ctx.fillStyle=g;ctx.fillRect(x-20,y-20,40,40);}tt++;ambientAnim=requestAnimationFrame(draw);})();
+    startGoldParticles();
+  } else if(scene.ambient==='sparkle'){
+    const sparks=Array.from({length:20},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,size:Math.random()*2+1,alpha:Math.random(),da:(Math.random()-0.5)*0.03}));
+    (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);sparks.forEach(s=>{s.alpha+=s.da;if(s.alpha>1||s.alpha<0)s.da*=-1;ctx.beginPath();ctx.arc(s.x,s.y,s.size,0,Math.PI*2);ctx.fillStyle=`rgba(255,220,100,${Math.abs(s.alpha)*0.6})`;ctx.fill();});ambientAnim=requestAnimationFrame(draw);})();
+    startGoldParticles();
+  }
+}
+
+// ============ MODALS ============
+function showModal(id){ const m=dom.modals[id]; if(!m) return; m.classList.remove('hidden'); m.style.display='flex'; const inner=m.querySelector('.modal-in,.modal-out'); if(inner){inner.classList.remove('modal-out');inner.classList.add('modal-in');} }
+function closeModal(id){ const m=dom.modals[id]; if(!m) return; const inner=m.querySelector('.modal-in'); if(inner){inner.classList.remove('modal-in');inner.classList.add('modal-out');setTimeout(()=>{m.style.display='none';m.classList.add('hidden');},250);} else {m.style.display='none';m.classList.add('hidden');} }
+
+// ============ RULES ============
+function showRules(){ state.rulesPage=0; renderRules(); showModal('rulesModal'); }
+function renderRules(){
+  const r=RULES[state.rulesPage];
+  document.getElementById('rulesContent').innerHTML=`<div class="text-center py-4"><div class="text-5xl mb-3">${r.icon}</div><h3 class="text-white font-bold text-lg mb-2">${state.lang==='zh'?r.title_zh:r.title_ms}</h3><p class="text-white/70 text-sm leading-relaxed">${state.lang==='zh'?r.text_zh:r.text_ms}</p></div>`;
+  document.getElementById('rulesDots').innerHTML=RULES.map((_,i)=>`<div class="w-2 h-2 rounded-full ${i===state.rulesPage?'bg-amber-400':'bg-white/20'}"></div>`).join('');
+  document.getElementById('rulesPrev').style.visibility=state.rulesPage>0?'visible':'hidden';
+  document.getElementById('rulesNext').innerHTML=state.rulesPage<RULES.length-1?`${t('next')} ➡`:'✅ OK';
+}
+function rulesNav(dir){ playClick(); state.rulesPage+=dir; if(state.rulesPage>=RULES.length){closeModal('rulesModal');return;} if(state.rulesPage<0) state.rulesPage=0; renderRules(); }
+
+// ============ NAV ============
+function navTo(section, btn){ playClick(); document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); if(section==='room') renderRoomModal(); else if(section==='shop') renderShopModal(); else if(section==='quest') renderQuestModal(); }
+
+// ============ ROOM MODAL ============
+function renderRoomModal(){
+  const grid=document.getElementById('sceneGrid'); grid.innerHTML='';
+  ROOMS.forEach((r,idx)=>{const isUnlocked=state.unlockedScenes.includes(idx),isActive=state.currentScene===idx;const card=document.createElement('div');card.className='scene-card'+(isActive?' active':'')+(!isUnlocked?' locked':'');card.innerHTML=`<img src="${r.img}" alt="${state.lang==='zh'?r.name_zh:r.name_ms}" loading="lazy"><div class="label">${state.lang==='zh'?r.name_zh:r.name_ms}</div>`;if(isUnlocked) card.onclick=()=>setScene(idx);grid.appendChild(card);});
+  showModal('roomModal');
+}
+
+// ============ SHOP ============
+let shopCurrentTab = 'scenes';
+function switchShopTab(tab){
+  playClick(); shopCurrentTab=tab;
+  const ac='flex-1 px-3 py-2 rounded-lg bg-amber-500/30 border border-amber-400/50 text-amber-300 font-bold text-sm transition hover:bg-amber-500/40';
+  const ic='flex-1 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white/70 font-bold text-sm transition hover:bg-white/15';
+  document.getElementById('shopTabScenes').className=tab==='scenes'?ac:ic; document.getElementById('shopTabChars').className=tab==='chars'?ac:ic;
+  renderShopList();
+}
+function renderShopList(){
+  const list=document.getElementById('shopList');
+  if(shopCurrentTab==='scenes'){
+    list.innerHTML=ROOMS.map((r,idx)=>{if(idx===0)return'';const owned=state.unlockedScenes.includes(idx);return`<div class="scene-card ${owned?'active':''}"><img src="${r.img}" alt="${state.lang==='zh'?r.name_zh:r.name_ms}" loading="lazy"><div class="label"><div class="flex items-center justify-between gap-2"><span>${state.lang==='zh'?r.name_zh:r.name_ms}</span>${owned?`<span class="inline-block text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400">${t('owned')}</span>`:`<button onclick="buyRoom(${idx})" class="text-xs font-bold px-2 py-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white hover:shadow-lg transition">🪙 ${r.price}</button>`}</div></div></div>`;}).join('');
+  } else {
+    list.innerHTML=CHARACTERS.map(c=>{const owned=state.ownedChars.includes(c.id);return`<div class="scene-card ${owned?'active':''}"><img src="${c.img}" alt="${state.lang==='zh'?c.name_zh:c.name_ms}" loading="lazy" style="object-fit:contain;background:linear-gradient(135deg,#1a1a2e,#2d1b69);"><div class="label"><div class="flex items-center justify-between gap-2"><span>${state.lang==='zh'?c.name_zh:c.name_ms}</span>${owned?`<span class="inline-block text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400">${t('owned')}</span>`:`<button onclick="buyChar('${c.id}')" class="text-xs font-bold px-2 py-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white hover:shadow-lg transition">🪙 50</button>`}</div></div></div>`;}).join('');
+  }
+}
+function renderShopModal(){
+  document.getElementById('shopCoins').textContent=state.coins; shopCurrentTab='scenes';
+  const ac='flex-1 px-3 py-2 rounded-lg bg-amber-500/30 border border-amber-400/50 text-amber-300 font-bold text-sm transition hover:bg-amber-500/40';
+  const ic='flex-1 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white/70 font-bold text-sm transition hover:bg-white/15';
+  document.getElementById('shopTabScenes').className=ac; document.getElementById('shopTabChars').className=ic;
+  renderShopList(); showModal('shopModal');
+}
+function buyRoom(idx){
+  const r=ROOMS[idx]; if(!r||state.unlockedScenes.includes(idx)) return;
+  if(state.coins<r.price){showToast(t('not_enough'),'red');return;}
+  playClick(); state.coins-=r.price; state.unlockedScenes.push(idx); updateCoinDisplay(); saveState(); showToast(t('bought')); renderShopModal(); checkAchievements();
+}
+
+// ============ QUEST ============
+function renderQuestModal(){
+  document.getElementById('questLevels').innerHTML='<div class="grid grid-cols-5 gap-2">'+QUIZZES.map((q,i)=>{
+    const done=state.completedQuests.includes(q.id),isLocked=i>0&&!state.completedQuests.includes(i),canPlay=!isLocked&&!done;
+    return`<button class="quest-btn w-full aspect-square rounded-xl font-bold text-sm flex flex-col items-center justify-center gap-0.5 ${done?'bg-emerald-500/30 text-emerald-300 border border-emerald-400/30':isLocked?'bg-gray-600/30 text-gray-400 border border-gray-500/30 cursor-not-allowed':'bg-gradient-to-br from-amber-500/30 to-orange-500/30 text-amber-300 border border-amber-400/30 hover:from-amber-500/40 hover:to-orange-500/40'}" onclick="${canPlay?`openQuiz(${q.id})`:''}" ${!canPlay?'disabled':''}><span>${done?'✅':isLocked?'🔒':'⚔️'}</span><span class="text-[10px]">${q.id}</span></button>`;
+  }).join('')+'</div>';
+  showModal('questModal');
+}
+
+// ============ QUIZ ============
+let currentQuizId=0, currentQuestionIdx=0;
+function openQuiz(id){playClick();closeModal('questModal');currentQuizId=id;currentQuestionIdx=0;showQuizQuestion();}
+function showQuizQuestion(){
+  const quiz=QUIZZES.find(q=>q.id===currentQuizId);
+  if(!quiz||currentQuestionIdx>=quiz.questions.length){showToast(t('completed'));setTimeout(()=>renderQuestModal(),1500);return;}
+  const q=quiz.questions[currentQuestionIdx];
+  document.getElementById('quizLevel').textContent=state.lang==='zh'?`第 ${currentQuizId} 关 (${currentQuestionIdx+1}/5)`:`Tahap ${currentQuizId} (${currentQuestionIdx+1}/5)`;
+  document.getElementById('quizQ').textContent=state.lang==='zh'?q.q_zh:q.q_ms;
+  document.getElementById('quizFeedback').classList.add('hidden');
+  const correct=state.lang==='zh'?q.ans_zh:q.ans_ms, wrongs=state.lang==='zh'?[...q.wrong_zh]:[...q.wrong_ms];
+  const opts=[correct,...wrongs]; for(let i=opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];}
+  const labels=['A','B','C','D'];
+  const colors=['from-blue-500/20 to-blue-600/20 border-blue-400/30 hover:from-blue-500/30','from-emerald-500/20 to-emerald-600/20 border-emerald-400/30 hover:from-emerald-500/30','from-purple-500/20 to-purple-600/20 border-purple-400/30 hover:from-purple-500/30','from-rose-500/20 to-rose-600/20 border-rose-400/30 hover:from-rose-500/30'];
+  document.getElementById('quizOpts').innerHTML=opts.map((o,i)=>`<button class="opt-btn w-full text-left p-3 rounded-xl bg-gradient-to-r ${colors[i]} border text-white/90 text-sm font-medium" onclick="checkAnswer(${currentQuizId},${currentQuestionIdx},this,${o===correct})"><span class="inline-block w-6 h-6 rounded-full bg-white/10 text-center text-xs leading-6 mr-2 font-bold">${labels[i]}</span>${o}</button>`).join('');
+  setTimeout(()=>showModal('quizModal'),300);
+}
+function checkAnswer(qid,qIdx,btn,correct){
+  const fb=document.getElementById('quizFeedback');
+  if(correct){
+    playCorrect(); btn.classList.add('!bg-emerald-500/40','!border-emerald-400');
+    fb.textContent=t('correct'); fb.className='mt-3 text-center font-bold text-sm text-emerald-400'; fb.classList.remove('hidden');
+    document.querySelectorAll('#quizOpts .opt-btn').forEach(b=>b.disabled=true);
+    setTimeout(()=>{currentQuestionIdx++;if(currentQuestionIdx>=5){fb.textContent='✅ '+(state.lang==='zh'?'挑战完成！':'Cabaran Selesai!');fb.className='mt-3 text-center font-bold text-sm text-amber-300';setTimeout(()=>{closeModal('quizModal');if(!state.completedQuests.includes(qid)){state.completedQuests.push(qid);addCoins(100);saveState();fireConfetti();checkAchievements();}},1500);} else showQuizQuestion();},1500);
+  } else {
+    playWrong(); btn.classList.add('!bg-red-500/40','!border-red-400'); btn.disabled=true;
+    fb.textContent=t('wrong'); fb.className='mt-3 text-center font-bold text-sm text-red-400'; fb.classList.remove('hidden');
+    setTimeout(()=>fb.classList.add('hidden'),1500);
+  }
+}
+
+// ============ CONFETTI ============
+function fireConfetti(){const colors=['#FFD700','#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8'];for(let i=0;i<50;i++){const p=document.createElement('div');p.className='confetti-piece';p.style.left=Math.random()*100+'%';p.style.top='-10px';p.style.background=colors[Math.floor(Math.random()*colors.length)];p.style.borderRadius=Math.random()>0.5?'50%':'2px';p.style.animationDuration=(1+Math.random())+'s';p.style.animationDelay=Math.random()*0.5+'s';document.body.appendChild(p);setTimeout(()=>p.remove(),2500);}}
+
+// ============ ACHIEVEMENTS ============
+function showAchievements(){
+  playClick();
+  document.getElementById('achieveList').innerHTML=ACHIEVEMENTS.map(a=>{
+    let u=false;if(a.id==='a1')u=state.unlockedScenes.length>=5;else if(a.id==='a2')u=state.completedQuests.length>=10;else if(a.id==='a3')u=state.unlockedScenes.length>=6;
+    return`<div class="flex items-center gap-3 p-3 rounded-xl ${u?'bg-amber-500/15 border border-amber-400/20':'bg-white/5 border border-white/5'}"><span class="text-3xl ${u?'badge-unlock':'opacity-30 grayscale'}">${a.icon}</span><div class="flex-1"><p class="font-bold text-sm ${u?'text-amber-300':'text-white/40'}">${state.lang==='zh'?a.title_zh:a.title_ms}</p><p class="text-xs ${u?'text-white/60':'text-white/30'}">${state.lang==='zh'?a.desc_zh:a.desc_ms}</p></div><span class="text-xs px-2 py-1 rounded-full ${u?'bg-emerald-500/20 text-emerald-400':'bg-white/5 text-white/30'}">${u?t('unlocked'):t('not_yet')}</span></div>`;
+  }).join('');
+  showModal('achieveModal');
+}
+function checkAchievements(){ACHIEVEMENTS.forEach(a=>{let u=false;if(a.id==='a1')u=state.unlockedScenes.length>=5;else if(a.id==='a2')u=state.completedQuests.length>=10;else if(a.id==='a3')u=state.unlockedScenes.length>=6;const k='ach_'+a.id;if(u&&!localStorage.getItem(k)){localStorage.setItem(k,'1');showToast(`🏆 ${state.lang==='zh'?a.title_zh:a.title_ms}`);}});}
+
+// ============ TOAST ============
+function showToast(msg,color){const toast=document.getElementById('toast'),inner=toast.querySelector('div');document.getElementById('toastMsg').textContent=msg;inner.className=`${color==='red'?'bg-gradient-to-r from-red-500 to-rose-500':'bg-gradient-to-r from-emerald-500 to-teal-500'} text-white px-5 py-3 rounded-xl shadow-xl font-bold text-sm text-center modal-in`;toast.classList.remove('hidden');setTimeout(()=>toast.classList.add('hidden'),2000);}
+
+// ============ BGM ============
+const BGM_TRACKS={default:'https://files.catbox.moe/02muih.mp3',xmas:'https://files.catbox.moe/ybu7m5.mp3',raya:'https://files.catbox.moe/fjqnh1.mp3',cny:'https://files.catbox.moe/tv15rq.mp3'};
+function getAudioCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx;}
+function playTone(freq,dur,type='sine',vol=0.1){try{const ctx=getAudioCtx(),osc=ctx.createOscillator(),gain=ctx.createGain();osc.type=type;osc.frequency.value=freq;gain.gain.setValueAtTime(vol,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+dur);}catch(e){}}
+function playClick(){playTone(800,0.08,'sine',0.06);}
+function playCorrect(){playTone(523,0.15,'sine',0.08);setTimeout(()=>playTone(659,0.15,'sine',0.08),100);setTimeout(()=>playTone(784,0.25,'sine',0.1),200);}
+function playWrong(){playTone(200,0.3,'square',0.06);}
+function toggleBGM(){playClick();showModal('bgmModal');}
+function toggleBGMState(){state.bgmOn=!state.bgmOn;document.getElementById('bgmToggle').textContent=state.bgmOn?'🔊':'🔇';if(state.bgmOn)startBGM();else stopBGM();}
+function setBGMTrack(track){playClick();state.currentBGMTrack=track;updateBGMTrackButtons();stopBGM();if(state.bgmOn)startBGM();saveState();}
+function updateBGMTrackButtons(){['Default','Xmas','Raya','Cny'].forEach(k=>{const el=document.getElementById('bgmTrack'+k);if(!el)return;const key=k.toLowerCase();el.className=`w-full px-3 py-2 rounded-lg font-bold text-sm transition ${state.currentBGMTrack===key?'bg-amber-500/30 border border-amber-400/50 text-amber-300 hover:bg-amber-500/40':'bg-white/10 border border-white/20 text-white/70 hover:bg-white/15'}`;});}
+function startBGM(){try{if(!bgmAudio)bgmAudio=document.getElementById('bgmAudio');if(bgmAudio){bgmAudio.src=BGM_TRACKS[state.currentBGMTrack||'default']||BGM_TRACKS.default;bgmAudio.volume=state.bgmVol/100;bgmAudio.play().catch(e=>{});}}catch(e){}}
+function stopBGM(){try{if(!bgmAudio)bgmAudio=document.getElementById('bgmAudio');if(bgmAudio)bgmAudio.pause();}catch(e){}}
+function setBGMVol(v){state.bgmVol=parseInt(v);if(bgmAudio)bgmAudio.volume=state.bgmVol/100;saveState();}
+
+// ============ RESET ============
+function showReset(){playClick();showModal('resetModal');}
+function confirmReset(){
+  playClick();stopBGM();state.bgmOn=false;document.getElementById('bgmToggle').textContent='🔇';
+  const lang=state.lang;localStorage.removeItem(STATE_KEY);
+  Object.assign(state,{coins:0,currentScene:0,unlockedScenes:[0],currentChar:'boy',ownedChars:['boy','girl'],completedQuests:[],firstTime:true,bgmOn:false,bgmVol:50,currentBGMTrack:'default',lang:lang,rulesPage:0,charX:50,charY:55});
+  ACHIEVEMENTS.forEach(a=>localStorage.removeItem('ach_'+a.id));
+  closeModal('resetModal');
+  setTimeout(()=>{dom.gameScreen.classList.add('hidden');dom.splash.classList.remove('hidden');stopAmbient();showToast('✨ 游戏已重置');},300);
+}
+
+// ============ PRELOAD & INIT ============
+function preloadImages(){ROOMS.forEach(r=>{new Image().src=r.img;});CHARACTERS.forEach(c=>{new Image().src=c.img;});}
+initDomCache(); loadState(); preloadImages(); setLang(state.lang); lucide.createIcons();
+</script>
+</body>
+</html>
